@@ -76,7 +76,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             {
                 _willProvision = false;
             }
-#endif            
+#endif
             return _willProvision.Value;
         }
 
@@ -102,7 +102,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             string teamId = CreateGroupTeam(scope, team, groupId, accessToken);
 
             SetGroupSecurity(scope, team, teamId, groupId, accessToken);
-            SetTeamChannels(scope, team, teamId, groupId, accessToken);
+            SetTeamChannels(scope, parser, team, teamId, groupId, accessToken);
             SetTeamApps(scope, team, teamId, groupId, accessToken);
 
             try
@@ -266,9 +266,97 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             }
         }
 
-        private static void SetTeamChannels(PnPMonitoredScope scope, Team team, string teamId, string groupId, string accessToken)
+        private static void SetTeamChannels(PnPMonitoredScope scope, TokenParser parser, Team team, string teamId, string groupId, string accessToken)
         {
-            throw new NotImplementedException();
+            // TODO: create resource strings for exceptions
+
+            if(team.Channels != null && team.Channels.Any())
+            {
+                foreach(var channel in team.Channels)
+                {
+                    string channelId;
+
+                    // Create the channel object for the API call
+                    var channelToCreate = new
+                    {
+                        channel.Description,
+                        channel.DisplayName,
+                        channel.IsFavoriteByDefault
+                    };
+
+                    try
+                    {
+                        // POST an API request to create the channel
+                        var responseHeaders = HttpHelper.MakePostRequestForHeaders($"https://graph.microsoft.com/beta/teams/{teamId}/channels", channelToCreate, "application/json", accessToken);
+                        channelId = responseHeaders.Location.ToString().Split('\'')[1];
+                    }
+                    catch (Exception ex)
+                    {
+                        scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_ProvisioningError, ex.Message);
+                    }
+
+                    // If there are any Tabs for the current channel
+                    if (channel.Tabs != null && channel.Tabs.Any())
+                    {
+                        try
+                        {
+                            foreach (var tab in channel.Tabs)
+                            {
+                                // Create the object for the API call
+                                var tabToCreate = new
+                                {
+                                    tab.DisplayName,
+                                    tab.TeamsAppId,
+                                    configuration = new
+                                    {
+                                        tab.Configuration.EntityId,
+                                        tab.Configuration.ContentUrl,
+                                        tab.Configuration.RemoveUrl,
+                                        tab.Configuration.WebsiteUrl
+                                    }
+                                };
+
+                                try
+                                {
+                                    // POST an API request to create the tab
+                                    HttpHelper.MakePostRequestForHeaders($"https://graph.microsoft.com/beta/teams/{teamId}/channels/{channelId}/tabs", tabToCreate, "application/json", accessToken);
+                                }
+                                catch(Exception ex)
+                                {
+                                    scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_TeamTemplate_FetchingError, ex.Message);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_TeamTemplate_FetchingError, ex.Message);
+                        }
+                    }
+
+                    // TODO: Handle TabResources
+
+                    // If there are any messages for the current channel
+                    if(channel.Messages != null && channel.Messages.Any())
+                    {
+                        foreach(var message in channel.Messages)
+                        {
+                            try
+                            {
+                                // Get and parse the CData
+                                var messageString = parser.ParseString(message.Message);
+                                var messageJson = JToken.Parse(messageString);
+
+                                // POST the message to the API
+                                HttpHelper.MakePostRequest($"https://graph.microsoft.com/beta/teams/{teamId}/channels/{channelId}/messages", messageJson, "application/json", accessToken);
+                            }
+                            catch (Exception ex)
+                            {
+                                scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_TeamTemplate_FetchingError, ex.Message);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         private static void SetTeamApps(PnPMonitoredScope scope, Team team, string teamId, string groupId, string accessToken)
