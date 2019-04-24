@@ -26,7 +26,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
 #if !ONPREMISES
             using (var scope = new PnPMonitoredScope(Name))
             {
-                var accessToken = PnPProvisioningContext.Current.AcquireToken("https://graph.microsoft.com/", "Group.ReadWrite.All");
+                var accessToken = PnPProvisioningContext.Current.AcquireToken("https://graph.microsoft.com/", "Group.ReadWrite.All User.ReadBasic.All");
 
                 // - Teams Templates
                 var teamTemplates = template.ParentHierarchy.Teams?.TeamTemplates;
@@ -98,7 +98,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 return null;
             }
 
-            string groupId = WebUtility.UrlEncode(team.GroupId);
+            string groupId = CreateGroup(scope, team, accessToken);
             string teamId = CreateGroupTeam(scope, team, groupId, accessToken);
 
             SetGroupSecurity(scope, team, teamId, groupId, accessToken);
@@ -116,6 +116,34 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             }
 
             return null;
+        }
+
+        private static string CreateGroup(PnPMonitoredScope scope, Team team, string accessToken)
+        {
+            // Group id is specified
+            if (!String.IsNullOrWhiteSpace(team.GroupId)) return team.GroupId;
+
+            try
+            {
+                var content = new
+                {
+                    displayName = "pnp test",
+                    mailEnabled = true,
+                    groupTypes = new[] { "Unified" },
+                    mailNickname = "pnptest",
+                    securityEnabled = false
+                };
+
+                // Create group
+                var json = HttpHelper.MakePostRequestForString($"https://graph.microsoft.com/beta/groups", content, "application/json", accessToken);
+
+                return JToken.Parse(json).Value<string>("id");
+            }
+            catch (Exception ex)
+            {
+                scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_CreatingGroupError, ex.Message);
+                return null;
+            }
         }
 
         private static void SetGroupSecurity(PnPMonitoredScope scope, Team team, string teamId, string groupId, string accessToken)
@@ -270,9 +298,9 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
         {
             // TODO: create resource strings for exceptions
 
-            if(team.Channels != null && team.Channels.Any())
+            if (team.Channels != null && team.Channels.Any())
             {
-                foreach(var channel in team.Channels)
+                foreach (var channel in team.Channels)
                 {
                     string channelId;
 
@@ -293,6 +321,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                     catch (Exception ex)
                     {
                         scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_ProvisioningError, ex.Message);
+                        return;
                     }
 
                     // If there are any Tabs for the current channel
@@ -321,7 +350,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                                     // POST an API request to create the tab
                                     HttpHelper.MakePostRequestForHeaders($"https://graph.microsoft.com/beta/teams/{teamId}/channels/{channelId}/tabs", tabToCreate, "application/json", accessToken);
                                 }
-                                catch(Exception ex)
+                                catch (Exception ex)
                                 {
                                     scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_TeamTemplate_FetchingError, ex.Message);
                                 }
@@ -336,9 +365,9 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                     // TODO: Handle TabResources
 
                     // If there are any messages for the current channel
-                    if(channel.Messages != null && channel.Messages.Any())
+                    if (channel.Messages != null && channel.Messages.Any())
                     {
-                        foreach(var message in channel.Messages)
+                        foreach (var message in channel.Messages)
                         {
                             try
                             {
@@ -376,7 +405,6 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                     team.Classification,
                     team.Specialization,
                     team.Visibility,
-                    isArchived = team.Archived,
                     funSettings = new
                     {
                         team.FunSettings.AllowGiphy,
@@ -407,9 +435,10 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                     }
                 };
 
-                responseHeaders = HttpHelper.MakePostRequestForHeaders($"https://graph.microsoft.com/beta/groups/{groupId}/team", content, "application/json", accessToken);
+                string json = HttpHelper.MakePutRequestForString($"https://graph.microsoft.com/beta/groups/{groupId}/team", content, "application/json", accessToken);
 
-                return responseHeaders.Location.ToString().Split('\'')[1];
+                return JToken.Parse(json).Value<string>("id");
+                //return responseHeaders.Location.ToString().Split('\'')[1];
             }
             catch (Exception ex)
             {

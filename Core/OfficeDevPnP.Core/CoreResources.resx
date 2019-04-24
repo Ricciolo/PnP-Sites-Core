@@ -1162,4 +1162,7 @@
   <data name="Provisioning_ObjectHandlers_Teams_Team_RemovingOwnerError" xml:space="preserve">
     <value>Failed to remove owner from team.</value>
   </data>
+  <data name="Provisioning_ObjectHandlers_Teams_Team_CreatingGroupError" xml:space="preserve">
+    <value>Failed to create group for team</value>
+  </data>
 </root>

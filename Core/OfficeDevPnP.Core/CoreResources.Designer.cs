@@ -2030,6 +2030,15 @@ namespace OfficeDevPnP.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed to create group for team.
+        /// </summary>
+        internal static string Provisioning_ObjectHandlers_Teams_Team_CreatingGroupError {
+            get {
+                return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_CreatingGroupError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed to get team information after provisioning..
         /// </summary>
         internal static string Provisioning_ObjectHandlers_Teams_Team_FetchingError {
