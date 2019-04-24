@@ -10,6 +10,8 @@ using OfficeDevPnP.Core.Utilities;
 using System.Net;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using System.Web;
+using System.Net.Http;
 
 namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
 {
@@ -99,11 +101,13 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             }
 
             string groupId = CreateGroup(scope, team, accessToken);
+            if (groupId == null) return null;
+
             string teamId = CreateGroupTeam(scope, team, groupId, accessToken);
 
-            SetGroupSecurity(scope, team, teamId, groupId, accessToken);
-            SetTeamChannels(scope, parser, team, teamId, groupId, accessToken);
-            SetTeamApps(scope, team, teamId, groupId, accessToken);
+            if (!SetGroupSecurity(scope, team, teamId, groupId, accessToken)) return null;
+            if (!SetTeamChannels(scope, parser, team, teamId, groupId, accessToken)) return null;
+            if (!SetTeamApps(scope, team, teamId, groupId, accessToken)) return null;
 
             try
             {
@@ -123,30 +127,28 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             // Group id is specified
             if (!String.IsNullOrWhiteSpace(team.GroupId)) return team.GroupId;
 
-            try
+            var content = new
             {
-                var content = new
-                {
-                    displayName = "pnp test",
-                    mailEnabled = true,
-                    groupTypes = new[] { "Unified" },
-                    mailNickname = "pnptest",
-                    securityEnabled = false
-                };
+                displayName = team.DisplayName,
+                mailEnabled = true,
+                groupTypes = new[] { "Unified" },
+                mailNickname = team.MailNickname,
+                securityEnabled = false
+            };
 
-                // Create group
-                var json = HttpHelper.MakePostRequestForString($"https://graph.microsoft.com/beta/groups", content, "application/json", accessToken);
-
-                return JToken.Parse(json).Value<string>("id");
-            }
-            catch (Exception ex)
-            {
-                scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_CreatingGroupError, ex.Message);
-                return null;
-            }
+            return new HttpRequestAddOrUpdateConfig(
+                scope,
+                "https://graph.microsoft.com/beta/groups",
+                content,
+                "ObjectConflict",
+                "mailNickname",
+                team.MailNickname,
+                CoreResources.Provisioning_ObjectHandlers_Teams_Team_CreatingGroupError,
+                CoreResources.Provisioning_ObjectHandlers_Teams_Team_GroupAlreadyExists,
+                accessToken).Execute();
         }
 
-        private static void SetGroupSecurity(PnPMonitoredScope scope, Team team, string teamId, string groupId, string accessToken)
+        private static bool SetGroupSecurity(PnPMonitoredScope scope, Team team, string teamId, string groupId, string accessToken)
         {
             string[] desideredOwnerIds;
             string[] desideredMemberIds;
@@ -168,7 +170,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             catch (Exception ex)
             {
                 scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_FetchingUserError, ex.Message);
-                return;
+                return false;
             }
 
             string[] ownerIdsToAdd;
@@ -178,9 +180,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 // Get current group owners
                 var jsonOwners = HttpHelper.MakeGetRequestForString($"https://graph.microsoft.com/beta/groups/{groupId}/owners?$select=id", accessToken);
 
-                string[] currentOwnerIds = JsonConvert.DeserializeAnonymousType(jsonOwners, new { value = new[] { new { id = "" } } })
-                    .value.Select(i => i.id)
-                    .ToArray();
+                string[] currentOwnerIds = GetIdsFromList(jsonOwners);
 
                 // Exclude owners already into the group
                 ownerIdsToAdd = desideredOwnerIds.Except(currentOwnerIds).ToArray();
@@ -197,7 +197,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             catch (Exception ex)
             {
                 scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_ListingOwnersError, ex.Message);
-                return;
+                return false;
             }
 
             // Add new owners
@@ -214,7 +214,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 catch (Exception ex)
                 {
                     scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_AddingOwnerError, ex.Message);
-                    return;
+                    return false;
                 }
             }
 
@@ -228,7 +228,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 catch (Exception ex)
                 {
                     scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_RemovingOwnerError, ex.Message);
-                    return;
+                    return false;
                 }
             }
 
@@ -239,9 +239,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 // Get current group members
                 var jsonOwners = HttpHelper.MakeGetRequestForString($"https://graph.microsoft.com/beta/groups/{groupId}/members?$select=id", accessToken);
 
-                string[] currentMemberIds = JsonConvert.DeserializeAnonymousType(jsonOwners, new { value = new[] { new { id = "" } } })
-                    .value.Select(i => i.id)
-                    .ToArray();
+                string[] currentMemberIds = GetIdsFromList(jsonOwners);
 
                 // Exclude members already into the group
                 memberIdsToAdd = desideredMemberIds.Except(currentMemberIds).ToArray();
@@ -258,7 +256,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             catch (Exception ex)
             {
                 scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_ListingMembersError, ex.Message);
-                return;
+                return false;
             }
 
             // Add new members
@@ -275,7 +273,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 catch (Exception ex)
                 {
                     scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_AddingMemberError, ex.Message);
-                    return;
+                    return false;
                 }
             }
 
@@ -289,12 +287,14 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 catch (Exception ex)
                 {
                     scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_RemovingMemberError, ex.Message);
-                    return;
+                    return false;
                 }
             }
+
+            return true;
         }
 
-        private static void SetTeamChannels(PnPMonitoredScope scope, TokenParser parser, Team team, string teamId, string groupId, string accessToken)
+        private static bool SetTeamChannels(PnPMonitoredScope scope, TokenParser parser, Team team, string teamId, string groupId, string accessToken)
         {
             // TODO: create resource strings for exceptions
 
@@ -302,8 +302,6 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             {
                 foreach (var channel in team.Channels)
                 {
-                    string channelId;
-
                     // Create the channel object for the API call
                     var channelToCreate = new
                     {
@@ -312,139 +310,149 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                         channel.IsFavoriteByDefault
                     };
 
-                    try
+                    string channelId = new HttpRequestAddOrUpdateConfig(
+                        scope,
+                        $"https://graph.microsoft.com/beta/teams/{teamId}/channels",
+                        channelToCreate,
+                        "NameAlreadyExists",
+                        "displayName",
+                        channel.DisplayName,
+                        "todo error",
+                        "todo warning",
+                        accessToken)
                     {
-                        // POST an API request to create the channel
-                        var responseHeaders = HttpHelper.MakePostRequestForHeaders($"https://graph.microsoft.com/beta/teams/{teamId}/channels", channelToCreate, "application/json", accessToken);
-                        channelId = responseHeaders.Location.ToString().Split('\'')[1];
-                    }
-                    catch (Exception ex)
-                    {
-                        scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_ProvisioningError, ex.Message);
-                        return;
-                    }
+                        CanPatch = false
+                    }.Execute();
+                    if (channelId == null) return false;
 
                     // If there are any Tabs for the current channel
-                    if (channel.Tabs != null && channel.Tabs.Any())
-                    {
-                        try
-                        {
-                            foreach (var tab in channel.Tabs)
-                            {
-                                // Create the object for the API call
-                                var tabToCreate = new
-                                {
-                                    tab.DisplayName,
-                                    tab.TeamsAppId,
-                                    configuration = new
-                                    {
-                                        tab.Configuration.EntityId,
-                                        tab.Configuration.ContentUrl,
-                                        tab.Configuration.RemoveUrl,
-                                        tab.Configuration.WebsiteUrl
-                                    }
-                                };
+                    if (channel.Tabs == null || !channel.Tabs.Any()) continue;
 
-                                try
-                                {
-                                    // POST an API request to create the tab
-                                    HttpHelper.MakePostRequestForHeaders($"https://graph.microsoft.com/beta/teams/{teamId}/channels/{channelId}/tabs", tabToCreate, "application/json", accessToken);
-                                }
-                                catch (Exception ex)
-                                {
-                                    scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_TeamTemplate_FetchingError, ex.Message);
-                                }
-                            }
-                        }
-                        catch (Exception ex)
+                    foreach (var tab in channel.Tabs)
+                    {
+                        // Create the object for the API call
+                        var tabToCreate = new
                         {
-                            scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_TeamTemplate_FetchingError, ex.Message);
-                        }
+                            tab.DisplayName,
+                            tab.TeamsAppId,
+                            configuration = tab.Configuration != null ? new
+                            {
+                                tab.Configuration.EntityId,
+                                tab.Configuration.ContentUrl,
+                                tab.Configuration.RemoveUrl,
+                                tab.Configuration.WebsiteUrl
+                            } : null
+                        };
+
+                        string tabId = new HttpRequestAddOrUpdateConfig(
+                            scope,
+                            $"https://graph.microsoft.com/beta/teams/{teamId}/channels/{channelId}/tabs",
+                            tabToCreate,
+                            "NameAlreadyExists",
+                            "displayName",
+                            tab.DisplayName,
+                            "TODO: error",
+                            "TODO: warning",
+                            accessToken).Execute();
+                        if (tabId == null) return false;
                     }
 
                     // TODO: Handle TabResources
 
                     // If there are any messages for the current channel
-                    if (channel.Messages != null && channel.Messages.Any())
-                    {
-                        foreach (var message in channel.Messages)
-                        {
-                            try
-                            {
-                                // Get and parse the CData
-                                var messageString = parser.ParseString(message.Message);
-                                var messageJson = JToken.Parse(messageString);
+                    if (channel.Messages == null || !channel.Messages.Any()) continue;
 
-                                // POST the message to the API
-                                HttpHelper.MakePostRequest($"https://graph.microsoft.com/beta/teams/{teamId}/channels/{channelId}/messages", messageJson, "application/json", accessToken);
-                            }
-                            catch (Exception ex)
-                            {
-                                scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_TeamTemplate_FetchingError, ex.Message);
-                            }
-                        }
+                    foreach (var message in channel.Messages)
+                    {
+                        // Get and parse the CData
+                        var messageString = parser.ParseString(message.Message);
+                        var messageJson = JToken.Parse(messageString);
+
+                        new HttpRequestAddConfig(scope,
+                            $"https://graph.microsoft.com/beta/teams/{teamId}/channels/{channelId}/messages",
+                            messageJson,
+                            "TODO: error",
+                            accessToken).Execute();
                     }
                 }
             }
+
+            return true;
         }
 
-        private static void SetTeamApps(PnPMonitoredScope scope, Team team, string teamId, string groupId, string accessToken)
+        private static bool SetTeamApps(PnPMonitoredScope scope, Team team, string teamId, string groupId, string accessToken)
         {
-            throw new NotImplementedException();
+            foreach (var app in team.Apps)
+            {
+                object content = new JObject
+                {
+                    ["teamsApp@odata.bind"] = app.AppId
+                };
+
+                string id = new HttpRequestAddConfig(scope,
+                    $"https://graph.microsoft.com/beta/teams/{teamId}/installedApps",
+                    content,
+                    "TODO: error",
+                    accessToken).Execute();
+            }
+
+            return true;
         }
 
         private static string CreateGroupTeam(PnPMonitoredScope scope, Team team, string groupId, string accessToken)
         {
-            HttpResponseHeaders responseHeaders;
-            try
+            var content = new
             {
-                var content = new
+                team.DisplayName,
+                team.Description,
+                team.Classification,
+                team.Specialization,
+                team.Visibility,
+                funSettings = new
                 {
-                    team.DisplayName,
-                    team.Description,
-                    team.Classification,
-                    team.Specialization,
-                    team.Visibility,
-                    funSettings = new
-                    {
-                        team.FunSettings.AllowGiphy,
-                        team.FunSettings.GiphyContentRating,
-                        team.FunSettings.AllowStickersAndMemes,
-                        team.FunSettings.AllowCustomMemes,
-                    },
-                    guestSettings = new
-                    {
-                        team.GuestSettings.AllowCreateUpdateChannels,
-                        team.GuestSettings.AllowDeleteChannels,
-                    },
-                    memberSettings = new
-                    {
-                        team.MemberSettings.AllowCreateUpdateChannels,
-                        team.MemberSettings.AllowAddRemoveApps,
-                        team.MemberSettings.AllowDeleteChannels,
-                        team.MemberSettings.AllowCreateUpdateRemoveTabs,
-                        team.MemberSettings.AllowCreateUpdateRemoveConnectors
-                    },
-                    messagingSettings = new
-                    {
-                        team.MessagingSettings.AllowUserEditMessages,
-                        team.MessagingSettings.AllowUserDeleteMessages,
-                        team.MessagingSettings.AllowOwnerDeleteMessages,
-                        team.MessagingSettings.AllowTeamMentions,
-                        team.MessagingSettings.AllowChannelMentions
-                    }
-                };
+                    team.FunSettings.AllowGiphy,
+                    team.FunSettings.GiphyContentRating,
+                    team.FunSettings.AllowStickersAndMemes,
+                    team.FunSettings.AllowCustomMemes,
+                },
+                guestSettings = new
+                {
+                    team.GuestSettings.AllowCreateUpdateChannels,
+                    team.GuestSettings.AllowDeleteChannels,
+                },
+                memberSettings = new
+                {
+                    team.MemberSettings.AllowCreateUpdateChannels,
+                    team.MemberSettings.AllowAddRemoveApps,
+                    team.MemberSettings.AllowDeleteChannels,
+                    team.MemberSettings.AllowCreateUpdateRemoveTabs,
+                    team.MemberSettings.AllowCreateUpdateRemoveConnectors
+                },
+                messagingSettings = new
+                {
+                    team.MessagingSettings.AllowUserEditMessages,
+                    team.MessagingSettings.AllowUserDeleteMessages,
+                    team.MessagingSettings.AllowOwnerDeleteMessages,
+                    team.MessagingSettings.AllowTeamMentions,
+                    team.MessagingSettings.AllowChannelMentions
+                }
+            };
 
-                string json = HttpHelper.MakePutRequestForString($"https://graph.microsoft.com/beta/groups/{groupId}/team", content, "application/json", accessToken);
-
-                return JToken.Parse(json).Value<string>("id");
-                //return responseHeaders.Location.ToString().Split('\'')[1];
-            }
-            catch (Exception ex)
+            new HttpRequestAddOrUpdateConfig(
+                scope,
+                $"https://graph.microsoft.com/beta/groups/{groupId}/team",
+                content,
+                "Conflict",
+                "id",
+                groupId,
+                CoreResources.Provisioning_ObjectHandlers_Teams_Team_ProvisioningError,
+                CoreResources.Provisioning_ObjectHandlers_Teams_Team_AlreadyExists,
+                accessToken)
             {
-                scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_ProvisioningError, ex.Message);
-                return null;
-            }
+                PutInsteadOfPost = true
+            }.Execute();
+
+            return groupId;
         }
 
         private static JToken CreateByTeamTemplate(PnPMonitoredScope scope, TokenParser parser, TeamTemplate teamTemplate, string accessToken)
@@ -475,6 +483,11 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             return null;
         }
 
+        private static string[] GetIdsFromList(string json)
+        {
+            return JsonConvert.DeserializeAnonymousType(json, new { value = new[] { new { id = "" } } }).value.Select(v => v.id).ToArray();
+        }
+
         private static string OverwriteJsonTemplateProperties(TokenParser parser, TeamTemplate teamTemplate)
         {
             var jsonTemplate = parser.ParseString(teamTemplate.JsonTemplate);
@@ -486,6 +499,125 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             if (teamTemplate.Visibility != null) team["visibility"] = teamTemplate.Visibility.ToString();
 
             return team.ToString();
+        }
+
+        private class HttpRequestAddConfig
+        {
+            public HttpRequestAddConfig(PnPMonitoredScope scope,
+                                     string uri,
+                                     object content,
+                                     string errorMessage,
+                                     string accessToken)
+            {
+                Scope = scope;
+                Uri = uri;
+                Content = content;
+                ErrorMessage = errorMessage;
+                AccessToken = accessToken;
+            }
+
+            public PnPMonitoredScope Scope { get; }
+
+            public string Uri { get; }
+
+            public object Content { get; }
+
+            public string ErrorMessage { get; }
+
+            public string AccessToken { get; }
+
+            public bool PutInsteadOfPost { get; set; }
+
+            public virtual string Execute()
+            {
+                try
+                {
+                    // Create item
+                    string json = PutInsteadOfPost ?
+                        HttpHelper.MakePutRequestForString(Uri, Content, "application/json", AccessToken)
+                        : HttpHelper.MakePostRequestForString(Uri, Content, "application/json", AccessToken);
+
+                    return JToken.Parse(json).Value<string>("id");
+                }
+                catch (Exception ex)
+                {
+                    return HandleError(ex);
+                }
+            }
+
+            protected virtual string HandleError(Exception ex)
+            {
+                Scope.LogError(ErrorMessage, ex.Message);
+                return null;
+            }
+        }
+
+        private class HttpRequestAddOrUpdateConfig : HttpRequestAddConfig
+        {
+            public HttpRequestAddOrUpdateConfig(PnPMonitoredScope scope,
+                                     string uri,
+                                     object content,
+                                     string conflictMessage,
+                                     string conflictFieldName,
+                                     string conflictFieldValue,
+                                     string errorMessage,
+                                     string warningMessage,
+                                     string accessToken) : base(scope, uri, content, errorMessage, accessToken)
+            {
+                ConflictMessage = conflictMessage;
+                ConflictFieldName = conflictFieldName;
+                ConflictFieldValue = conflictFieldValue;
+                WarningMessage = warningMessage;
+            }
+
+            public string ConflictMessage { get; }
+
+            public string ConflictFieldName { get; }
+
+            public string ConflictFieldValue { get; }
+
+            public string WarningMessage { get; }
+
+            public bool CanPatch { get; set; }
+
+            protected override string HandleError(Exception ex)
+            {
+                // Group already exists
+                if (ex.InnerException.Message.Contains(ConflictMessage))
+                {
+                    try
+                    {
+                        Scope.LogWarning(WarningMessage);
+
+                        // If it's a POST we need to look for any existing item
+                        string id = null;
+                        string uri = Uri;
+                        // In case of PUT we already have the id
+                        if (!PutInsteadOfPost)
+                        {
+                            // Filter by field and value specified
+                            string json = HttpHelper.MakeGetRequestForString($"{uri}?$select=id&$filter={ConflictFieldName}%20eq%20'{WebUtility.UrlEncode(ConflictFieldValue)}'");
+                            id = GetIdsFromList(json)[0];
+                            uri = $"{Uri}/{id}";
+                        }
+
+                        // Path the item
+                        if (CanPatch)
+                        {
+                            HttpHelper.MakePatchRequestForString(uri, Content, "application/json", AccessToken);
+                        }
+
+                        return id;
+                    }
+                    catch (Exception ex2)
+                    {
+                        Scope.LogError(ErrorMessage, ex2.Message);
+                        return null;
+                    }
+                }
+
+                return base.HandleError(ex);
+            }
         }
     }
 }

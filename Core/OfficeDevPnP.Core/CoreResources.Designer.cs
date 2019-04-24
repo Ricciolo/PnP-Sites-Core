@@ -2030,6 +2030,15 @@ namespace OfficeDevPnP.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Team already exists.
+        /// </summary>
+        internal static string Provisioning_ObjectHandlers_Teams_Team_AlreadyExists {
+            get {
+                return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_AlreadyExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed to create group for team.
         /// </summary>
         internal static string Provisioning_ObjectHandlers_Teams_Team_CreatingGroupError {
@@ -2053,6 +2062,15 @@ namespace OfficeDevPnP.Core {
         internal static string Provisioning_ObjectHandlers_Teams_Team_FetchingUserError {
             get {
                 return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_FetchingUserError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Group already exists.
+        /// </summary>
+        internal static string Provisioning_ObjectHandlers_Teams_Team_GroupAlreadyExists {
+            get {
+                return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_GroupAlreadyExists", resourceCulture);
             }
         }
         

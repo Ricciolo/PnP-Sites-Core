@@ -1165,4 +1165,10 @@
   <data name="Provisioning_ObjectHandlers_Teams_Team_CreatingGroupError" xml:space="preserve">
     <value>Failed to create group for team</value>
   </data>
+  <data name="Provisioning_ObjectHandlers_Teams_Team_AlreadyExists" xml:space="preserve">
+    <value>Team already exists</value>
+  </data>
+  <data name="Provisioning_ObjectHandlers_Teams_Team_GroupAlreadyExists" xml:space="preserve">
+    <value>Group already exists</value>
+  </data>
 </root>
