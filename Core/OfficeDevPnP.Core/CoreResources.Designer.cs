@@ -2012,6 +2012,24 @@ namespace OfficeDevPnP.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed to add member to team..
+        /// </summary>
+        internal static string Provisioning_ObjectHandlers_Teams_Team_AddingMemberError {
+            get {
+                return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_AddingMemberError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to add owner to team..
+        /// </summary>
+        internal static string Provisioning_ObjectHandlers_Teams_Team_AddingOwnerError {
+            get {
+                return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_AddingOwnerError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed to get team information after provisioning..
         /// </summary>
         internal static string Provisioning_ObjectHandlers_Teams_Team_FetchingError {
@@ -2021,11 +2039,56 @@ namespace OfficeDevPnP.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Provisioning a team based on a team failed..
+        ///   Looks up a localized string similar to Failed to get user by upn information..
+        /// </summary>
+        internal static string Provisioning_ObjectHandlers_Teams_Team_FetchingUserError {
+            get {
+                return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_FetchingUserError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to list team members..
+        /// </summary>
+        internal static string Provisioning_ObjectHandlers_Teams_Team_ListingMembersError {
+            get {
+                return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_ListingMembersError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to list team owners..
+        /// </summary>
+        internal static string Provisioning_ObjectHandlers_Teams_Team_ListingOwnersError {
+            get {
+                return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_ListingOwnersError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Provisioning a team failed..
         /// </summary>
         internal static string Provisioning_ObjectHandlers_Teams_Team_ProvisioningError {
             get {
                 return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_ProvisioningError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to remove member from team..
+        /// </summary>
+        internal static string Provisioning_ObjectHandlers_Teams_Team_RemovingMemberError {
+            get {
+                return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_RemovingMemberError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to remove owner from team..
+        /// </summary>
+        internal static string Provisioning_ObjectHandlers_Teams_Team_RemovingOwnerError {
+            get {
+                return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_RemovingOwnerError", resourceCulture);
             }
         }
         

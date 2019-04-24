@@ -1135,10 +1135,31 @@
   <data name="Provisioning_ObjectHandlers_Teams_TeamTemplate_FetchingError" xml:space="preserve">
     <value>Failed to get team information after provisioning.</value>
   </data>
+  <data name="Provisioning_ObjectHandlers_Teams_Team_AddingMemberError" xml:space="preserve">
+    <value>Failed to add member to team.</value>
+  </data>
+  <data name="Provisioning_ObjectHandlers_Teams_Team_AddingOwnerError" xml:space="preserve">
+    <value>Failed to add owner to team.</value>
+  </data>
   <data name="Provisioning_ObjectHandlers_Teams_Team_FetchingError" xml:space="preserve">
     <value>Failed to get team information after provisioning.</value>
   </data>
+  <data name="Provisioning_ObjectHandlers_Teams_Team_FetchingUserError" xml:space="preserve">
+    <value>Failed to get user by upn information.</value>
+  </data>
+  <data name="Provisioning_ObjectHandlers_Teams_Team_ListingMembersError" xml:space="preserve">
+    <value>Failed to list team members.</value>
+  </data>
+  <data name="Provisioning_ObjectHandlers_Teams_Team_ListingOwnersError" xml:space="preserve">
+    <value>Failed to list team owners.</value>
+  </data>
   <data name="Provisioning_ObjectHandlers_Teams_Team_ProvisioningError" xml:space="preserve">
-    <value>Provisioning a team based on a team failed.</value>
+    <value>Provisioning a team failed.</value>
+  </data>
+  <data name="Provisioning_ObjectHandlers_Teams_Team_RemovingMemberError" xml:space="preserve">
+    <value>Failed to remove member from team.</value>
+  </data>
+  <data name="Provisioning_ObjectHandlers_Teams_Team_RemovingOwnerError" xml:space="preserve">
+    <value>Failed to remove owner from team.</value>
   </data>
 </root>

@@ -8,6 +8,8 @@ using Newtonsoft.Json.Linq;
 using OfficeDevPnP.Core.Framework.Provisioning.Model.Teams;
 using OfficeDevPnP.Core.Utilities;
 using System.Net;
+using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
 {
@@ -118,7 +120,150 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
 
         private static void SetGroupSecurity(PnPMonitoredScope scope, Team team, string teamId, string groupId, string accessToken)
         {
-            throw new NotImplementedException();
+            string[] desideredOwnerIds;
+            string[] desideredMemberIds;
+            try
+            {
+                var userIdsByUPN = team.Security.Owners
+                    .Select(o => o.UserPrincipalName)
+                    .Concat(team.Security.Members.Select(m => m.UserPrincipalName))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(k => k, k =>
+                    {
+                        var jsonUser = HttpHelper.MakeGetRequestForString($"https://graph.microsoft.com/beta/users/{WebUtility.UrlEncode(k)}?$select=id", accessToken);
+                        return JToken.Parse(jsonUser).Value<string>("id");
+                    });
+
+                desideredOwnerIds = team.Security.Owners.Select(o => userIdsByUPN[o.UserPrincipalName]).ToArray();
+                desideredMemberIds = team.Security.Members.Select(o => userIdsByUPN[o.UserPrincipalName]).ToArray();
+            }
+            catch (Exception ex)
+            {
+                scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_FetchingUserError, ex.Message);
+                return;
+            }
+
+            string[] ownerIdsToAdd;
+            string[] ownerIdsToRemove;
+            try
+            {
+                // Get current group owners
+                var jsonOwners = HttpHelper.MakeGetRequestForString($"https://graph.microsoft.com/beta/groups/{groupId}/owners?$select=id", accessToken);
+
+                string[] currentOwnerIds = JsonConvert.DeserializeAnonymousType(jsonOwners, new { value = new[] { new { id = "" } } })
+                    .value.Select(i => i.id)
+                    .ToArray();
+
+                // Exclude owners already into the group
+                ownerIdsToAdd = desideredOwnerIds.Except(currentOwnerIds).ToArray();
+
+                if (team.Security.ClearExistingOwners)
+                {
+                    ownerIdsToRemove = currentOwnerIds.Except(desideredOwnerIds).ToArray();
+                }
+                else
+                {
+                    ownerIdsToRemove = new string[0];
+                }
+            }
+            catch (Exception ex)
+            {
+                scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_ListingOwnersError, ex.Message);
+                return;
+            }
+
+            // Add new owners
+            foreach (string ownerId in ownerIdsToAdd)
+            {
+                try
+                {
+                    object content = new JObject
+                    {
+                        ["@odata.id"] = $"https://graph.microsoft.com/beta/users/{ownerId}"
+                    };
+                    HttpHelper.MakePostRequest($"https://graph.microsoft.com/beta/groups/{groupId}/owners/$ref", content, "application/json", accessToken);
+                }
+                catch (Exception ex)
+                {
+                    scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_AddingOwnerError, ex.Message);
+                    return;
+                }
+            }
+
+            // Remove exceeding owners
+            foreach (string ownerId in ownerIdsToRemove)
+            {
+                try
+                {
+                    HttpHelper.MakeDeleteRequest($"https://graph.microsoft.com/beta/groups/{groupId}/owners/{ownerId}/$ref", accessToken);
+                }
+                catch (Exception ex)
+                {
+                    scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_RemovingOwnerError, ex.Message);
+                    return;
+                }
+            }
+
+            string[] memberIdsToAdd;
+            string[] memberIdsToRemove;
+            try
+            {
+                // Get current group members
+                var jsonOwners = HttpHelper.MakeGetRequestForString($"https://graph.microsoft.com/beta/groups/{groupId}/members?$select=id", accessToken);
+
+                string[] currentMemberIds = JsonConvert.DeserializeAnonymousType(jsonOwners, new { value = new[] { new { id = "" } } })
+                    .value.Select(i => i.id)
+                    .ToArray();
+
+                // Exclude members already into the group
+                memberIdsToAdd = desideredMemberIds.Except(currentMemberIds).ToArray();
+
+                if (team.Security.ClearExistingMembers)
+                {
+                    memberIdsToRemove = currentMemberIds.Except(desideredMemberIds).ToArray();
+                }
+                else
+                {
+                    memberIdsToRemove = new string[0];
+                }
+            }
+            catch (Exception ex)
+            {
+                scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_ListingMembersError, ex.Message);
+                return;
+            }
+
+            // Add new members
+            foreach (string ownerId in memberIdsToAdd)
+            {
+                try
+                {
+                    object content = new JObject
+                    {
+                        ["@odata.id"] = $"https://graph.microsoft.com/beta/users/{ownerId}"
+                    };
+                    HttpHelper.MakePostRequest($"https://graph.microsoft.com/beta/groups/{groupId}/members/$ref", content, "application/json", accessToken);
+                }
+                catch (Exception ex)
+                {
+                    scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_AddingMemberError, ex.Message);
+                    return;
+                }
+            }
+
+            // Remove exceeding members
+            foreach (string memberId in memberIdsToRemove)
+            {
+                try
+                {
+                    HttpHelper.MakeDeleteRequest($"https://graph.microsoft.com/beta/groups/{groupId}/members/{memberId}/$ref", accessToken);
+                }
+                catch (Exception ex)
+                {
+                    scope.LogError(CoreResources.Provisioning_ObjectHandlers_Teams_Team_RemovingMemberError, ex.Message);
+                    return;
+                }
+            }
         }
 
         private static void SetTeamChannels(PnPMonitoredScope scope, Team team, string teamId, string groupId, string accessToken)
@@ -173,7 +318,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                         team.MessagingSettings.AllowChannelMentions
                     }
                 };
-                
+
                 responseHeaders = HttpHelper.MakePostRequestForHeaders($"https://graph.microsoft.com/beta/groups/{groupId}/team", content, "application/json", accessToken);
 
                 return responseHeaders.Location.ToString().Split('\'')[1];
