@@ -19,7 +19,7 @@ namespace OfficeDevPnP.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class CoreResources {
@@ -2008,6 +2008,24 @@ namespace OfficeDevPnP.Core {
             get {
                 return ResourceManager.GetString("Provisioning_ObjectHandlers_SiteSecurity_Context_web_is_subweb__skipping_site_sec" +
                         "urity_provisioning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to get team information after provisioning..
+        /// </summary>
+        internal static string Provisioning_ObjectHandlers_Teams_Team_FetchingError {
+            get {
+                return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_FetchingError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Provisioning a team based on a team failed..
+        /// </summary>
+        internal static string Provisioning_ObjectHandlers_Teams_Team_ProvisioningError {
+            get {
+                return ResourceManager.GetString("Provisioning_ObjectHandlers_Teams_Team_ProvisioningError", resourceCulture);
             }
         }
         

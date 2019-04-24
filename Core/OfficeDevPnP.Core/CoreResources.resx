@@ -1135,4 +1135,10 @@
   <data name="Provisioning_ObjectHandlers_Teams_TeamTemplate_FetchingError" xml:space="preserve">
     <value>Failed to get team information after provisioning.</value>
   </data>
+  <data name="Provisioning_ObjectHandlers_Teams_Team_FetchingError" xml:space="preserve">
+    <value>Failed to get team information after provisioning.</value>
+  </data>
+  <data name="Provisioning_ObjectHandlers_Teams_Team_ProvisioningError" xml:space="preserve">
+    <value>Provisioning a team based on a team failed.</value>
+  </data>
 </root>
