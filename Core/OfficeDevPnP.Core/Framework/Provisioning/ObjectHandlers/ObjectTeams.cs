@@ -452,6 +452,8 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 PutInsteadOfPost = true
             }.Execute();
 
+            // TODO: call archive and unarchive
+
             return groupId;
         }
 
@@ -582,7 +584,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
 
             protected override string HandleError(Exception ex)
             {
-                // Group already exists
+                // Item already exists
                 if (ex.InnerException.Message.Contains(ConflictMessage))
                 {
                     try
@@ -597,11 +599,12 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                         {
                             // Filter by field and value specified
                             string json = HttpHelper.MakeGetRequestForString($"{uri}?$select=id&$filter={ConflictFieldName}%20eq%20'{WebUtility.UrlEncode(ConflictFieldValue)}'");
+                            // Get the id of existing item
                             id = GetIdsFromList(json)[0];
                             uri = $"{Uri}/{id}";
                         }
 
-                        // Path the item
+                        // Path the item, if supported
                         if (CanPatch)
                         {
                             HttpHelper.MakePatchRequestForString(uri, Content, "application/json", AccessToken);
